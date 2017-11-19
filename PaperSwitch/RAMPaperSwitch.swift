@@ -45,7 +45,11 @@ open class RAMPaperSwitch: UISwitch, CAAnimationDelegate {
     fileprivate var oldState             = false
 
     fileprivate var defaultTintColor: UIColor?
-    fileprivate(set) var parentView: UIView?
+    @IBOutlet open var parentView: UIView? {
+        didSet {
+            defaultTintColor = parentView?.backgroundColor
+        }
+    }
 
     // MARK: - Initialization
 
@@ -68,18 +72,17 @@ open class RAMPaperSwitch: UISwitch, CAAnimationDelegate {
     }
 
     override open func awakeFromNib() {
-        self.commonInit(superview)
+        self.commonInit(parentView ?? superview)
         super.awakeFromNib()
     }
 
     // MARK: Helpers
-
     fileprivate func commonInit(_ parentView: UIView?) {
         guard let onTintColor = self.onTintColor else {
             fatalError("set tint color")
         }
         self.parentView = parentView
-        self.defaultTintColor = parentView?.backgroundColor
+        defaultTintColor = parentView?.backgroundColor
 
         layer.borderWidth  = 0.5
         layer.borderColor  = UIColor.white.cgColor
@@ -97,39 +100,41 @@ open class RAMPaperSwitch: UISwitch, CAAnimationDelegate {
     }
 
     override open func layoutSubviews() {
-        let x:CGFloat = max(frame.midX, superview!.frame.size.width - frame.midX);
-        let y:CGFloat = max(frame.midY, superview!.frame.size.height - frame.midY);
-        radius = sqrt(x*x + y*y);
+        
+        if let parentView = self.parentView {
+            let x:CGFloat = max(center.x, parentView.frame.size.width - frame.midX)
+            let y:CGFloat = max(center.y, parentView.frame.size.height - frame.midY)
+            radius = sqrt(x*x + y*y)
+        }
+        
+        let additional = parentView == superview ? CGPoint.zero : (superview?.frame.origin ?? CGPoint.zero)
 
-        shape.frame = CGRect(x: frame.midX - radius, y: frame.midY - radius, width: radius * 2, height: radius * 2)
-        shape.anchorPoint = CGPoint(x: 0.5, y: 0.5);
+        shape.frame = CGRect(x: center.x - radius + additional.x - 2, y: center.y - radius + additional.y, width: radius * 2, height: radius * 2)
+        shape.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         shape.path = UIBezierPath(ovalIn: CGRect(x: 0, y: 0, width: radius * 2, height: radius * 2)).cgPath
     }
 
     // MARK: - Public
-
     open override func setOn(_ on: Bool, animated: Bool) {
         let changed:Bool = on != self.isOn
 
         super.setOn(on, animated: animated)
 
         if changed {
-            switchChangeWithAniation(animated)
+            switchChangeWithAnimation(animated)
         }
     }
 
     // MARK: - Private
-
     fileprivate func showShapeIfNeed() {
         shape.transform = isOn ? CATransform3DMakeScale(1.0, 1.0, 1.0) : CATransform3DMakeScale(0.0001, 0.0001, 0.0001)
     }
 
-    internal func switchChanged() {
-        switchChangeWithAniation(true)
+    @objc internal func switchChanged() {
+        switchChangeWithAnimation(true)
     }
 
     // MARK: - Animations 
-
     fileprivate func animateKeyPath(_ keyPath: String, fromValue from: CGFloat?, toValue to: CGFloat, timing timingFunction: String) -> CABasicAnimation {
 
         let animation:CABasicAnimation = CABasicAnimation(keyPath: keyPath)
@@ -146,7 +151,7 @@ open class RAMPaperSwitch: UISwitch, CAAnimationDelegate {
         return animation
     }
 
-    fileprivate func switchChangeWithAniation(_ animation: Bool) {
+    fileprivate func switchChangeWithAnimation(_ animation: Bool) {
         guard let onTintColor = self.onTintColor else {
             return
         }
@@ -173,7 +178,6 @@ open class RAMPaperSwitch: UISwitch, CAAnimationDelegate {
     }
 
     //MARK: - CAAnimation Delegate
-
     open func animationDidStart(_ anim: CAAnimation) {
         parentView?.backgroundColor = defaultTintColor
         animationDidStartClosure(isOn)
